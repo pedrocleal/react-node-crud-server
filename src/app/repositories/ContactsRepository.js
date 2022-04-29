@@ -1,60 +1,58 @@
 // Fonte de dados que serve como "repositório" para ser consultado por outros módulos e retornar dados
-const { v4 } = require('uuid');
-
-let contacts = [
-  {
-    id: v4(),
-    name: 'Pedro',
-    phone: '83983399533',
-  },
-  {
-    id: v4(),
-    name: 'Joabinho',
-    phone: '83982033959',
-  },
-];
+const db = require('../../database/index');
 
 class ContactsRepository {
-  findAll() {
-    return new Promise((resolve) => resolve(contacts));
+  async findAll(orderBy = 'ASC') {
+    // Não é necessário a desestructuring na const rows pois quero mais de um registro
+
+    const order = orderBy.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+
+    const rows = await db.createQuery(`
+      SELECT * FROM contacts_list ORDER BY name ${order}
+    `);
+
+    return rows;
   }
 
-  findById(id) {
-    return new Promise((resolve) => resolve(
-      contacts.find((contact) => contact.id === id),
-    ));
+  async findById(id) {
+    const [row] = await db.createQuery(`
+      SELECT * FROM contacts_list 
+      WHERE id = $1
+    `, [id]);
+
+    return row;
   }
 
-  create({ name, phone }) {
-    return new Promise((resolve) => {
-      const newContact = {
-        id: v4(),
-        name,
-        phone,
-      };
-      contacts.push(newContact);
-      resolve(newContact);
-    });
+  async create({ name, phone }) {
+    // Como eu irei usar os dados do último registro, é necessário a desestruturação
+
+    const [row] = await db.createQuery(`
+      INSERT INTO contacts_list(name, phone) 
+      VALUES($1, $2) 
+      RETURNING *
+    `, [name, phone]);
+
+    return row;
   }
 
-  update({ name, id, phone }) {
-    return new Promise((resolve) => {
-      contacts = contacts.map((contact) => (contact.id === id
-        ? {
-          ...contact,
-          name,
-          phone,
-        }
-        : contact));
-      resolve();
-    });
+  async update({ name, id, phone }) {
+    const [row] = await db.createQuery(`
+      UPDATE contacts_list
+      SET name = $1, phone = $2
+      WHERE id = $3
+      RETURNING *
+    `, [name, phone, id]);
+
+    return row;
   }
 
-  delete(id) {
-    return new Promise((resolve) => {
-      contacts = contacts.filter((contact) => contact.id !== id);
-      resolve();
-    });
+  async delete(id) {
+    const row = await db.createQuery(`
+      DELETE FROM contacts_list
+      WHERE id = $1
+    `, [id]);
+
+    return row;
   }
 }
 
